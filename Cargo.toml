@@ -1,0 +1,13 @@
+[package]
+name = "live2d_mini_rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+live2d_mini_sys = {path = "live2d_mini_sys"}
+live2d_mini = {path = "live2d_mini"}
+
+miniquad = { version = "=0.3.0-alpha.42"}
+image = "0.24"
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
