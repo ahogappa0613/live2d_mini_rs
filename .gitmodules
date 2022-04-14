@@ -1,0 +1,3 @@
+[submodule "live2d_mini_sys"]
+	path = live2d_mini_sys
+	url = https://github.com/ahogappa0613/live2d_mini_sys
