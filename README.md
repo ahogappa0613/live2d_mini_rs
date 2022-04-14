@@ -9,7 +9,7 @@
 * M1のみ確認
 * resouces/以下にLive2Dモデルデータを配置
   * 動作確認はHiyoriのデータを使っている
-* live2d_mini_sys/Code以下にLive2Dのライブラリを配置
+* live2d_mini_sys/Core以下にLive2Dのライブラリを配置
 
 # まだできてないこと
 * アニメーションの切り替え
