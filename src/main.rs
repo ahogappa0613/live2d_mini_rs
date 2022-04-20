@@ -31,8 +31,7 @@ struct Stage {
 }
 impl Stage {
     pub fn new(ctx: &mut Context) -> Self {
-        let path =
-            Path::new("/Users/ahogappa/project/live2d_mini_rs/resources/Hiyori/Hiyori.model3.json");
+        let path = Path::new("./resources/Hiyori/Hiyori.model3.json");
 
         let current_dir = path.parent().unwrap();
 
@@ -183,6 +182,10 @@ impl EventHandler for Stage {
         // let time = miniquad::date::now();
         // let delta = (time - self.start_time) / 1000.0;
         self.last_frame += 0.02;
+
+        if self.last_frame > self.anime.duration.into() {
+            self.last_frame = 0.0;
+        }
 
         // dbg!(delta);
         animation::evaluate_animation(&self.model, &self.anime, self.last_frame as f32);

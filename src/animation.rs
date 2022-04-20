@@ -160,7 +160,7 @@ pub fn evaluate_animation(
     time: f32,
 ) {
     for (id, curve) in animation.curves.iter() {
-        let value = curve.evaluate_curve(time, &animation);
+        let value = curve.evaluate_curve(time);
 
         match curve.curve_type {
             AnimationType::ModelAnimationCurve => todo!(),
@@ -183,27 +183,15 @@ pub fn evaluate_animation(
 }
 
 impl AnimationCurve {
-    pub fn evaluate_curve(&self, time: f32, animation: &Animation) -> f32 {
+    pub fn evaluate_curve(&self, time: f32) -> f32 {
         let target_segment = self.segments.iter().find(|segment| match segment {
             AnimationCurveType::Linear(p0, p1) => time >= p0.time && time <= p1.time,
             AnimationCurveType::Bezier(p0, _, _, p3) => time >= p0.time && time <= p3.time,
             AnimationCurveType::Stepped(p0, p1) => time >= p0.time && time <= p1.time,
             AnimationCurveType::InverseStepped(p0, p1) => time >= p0.time && time <= p1.time,
-        });
+        }).expect("not find segment");
 
-        // ここでやることか？
-        if let Some(segment) = target_segment {
-            segment.evaluate(time)
-        } else {
-            if animation.is_loop {
-                self.evaluate_curve(time - animation.duration, animation)
-            } else {
-                self.segments
-                    .last()
-                    .expect("cant get last segment")
-                    .evaluate(animation.duration)
-            }
-        }
+        target_segment.evaluate(time)
     }
 }
 
