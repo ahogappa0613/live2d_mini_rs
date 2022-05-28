@@ -1,6 +1,6 @@
 use std::{ffi::CStr, os::raw::c_char};
 
-use crate::model::Live2DModel;
+use crate::model_resource::Live2DModelResource;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Live2DParameter<'a> {
@@ -37,7 +37,7 @@ pub struct Live2DParameterIter<'a> {
     pub(crate) pos: usize,
     pub(crate) len: usize,
 
-    pub(crate) inner: &'a Live2DModel,
+    pub(crate) inner: &'a Live2DModelResource,
 }
 
 impl<'a> Iterator for Live2DParameterIter<'a> {
@@ -94,7 +94,7 @@ pub struct Live2DParameterIterMut<'a> {
     pub(crate) pos: usize,
     pub(crate) len: usize,
 
-    pub(crate) inner: &'a Live2DModel,
+    pub(crate) inner: &'a Live2DModelResource,
 }
 
 impl<'a> Iterator for Live2DParameterIterMut<'a> {

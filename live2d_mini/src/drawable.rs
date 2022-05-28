@@ -2,8 +2,7 @@ use std::{ffi::CStr, os::raw::c_char};
 
 use crate::constant_flag::*;
 use crate::dynamic_flag::*;
-use crate::model::*;
-use crate::vector2::*;
+use crate::model_resource::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Live2DDrawable<'a> {
@@ -110,7 +109,7 @@ pub struct Live2DDrawableIter<'a> {
     pub(crate) pos: usize,
     pub(crate) len: usize,
 
-    pub(crate) inner: &'a Live2DModel,
+    pub(crate) inner: &'a Live2DModelResource,
 }
 
 impl<'a> Iterator for Live2DDrawableIter<'a> {
@@ -172,7 +171,7 @@ impl<'a> Iterator for Live2DDrawableIter<'a> {
 pub struct Live2DSortedDrawableIter<'a> {
     pub(crate) sorted_indices: Vec<usize>,
 
-    pub(crate) inner: &'a Live2DModel,
+    pub(crate) inner: &'a Live2DModelResource,
 }
 
 impl<'a> Iterator for Live2DSortedDrawableIter<'a> {

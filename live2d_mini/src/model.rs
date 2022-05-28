@@ -1,454 +1,92 @@
-use std::alloc::alloc_zeroed;
-use std::alloc::Layout;
-use std::alloc::LayoutError;
 use std::fs::File;
-use std::io;
-use std::io::Read;
-use std::os::raw::c_char;
+use std::io::BufReader;
 use std::path::Path;
+use std::rc::Rc;
 
-use crate::address::*;
-use crate::constant_flag::Live2DConstantFlag;
-use crate::drawable::*;
-use crate::dynamic_flag::Live2DDynamicFlag;
-use crate::parameter::*;
-use crate::part::*;
+use crate::animation;
+use crate::animation::*;
+use crate::model_json;
+use crate::motion_json;
+use crate::pose_json;
 
-#[derive(Debug, Clone)]
-pub struct Live2DVector2(live2d_mini_sys::csmVector2);
-impl Live2DVector2 {
-    pub fn x(&self) -> f32 {
-        self.0.X
-    }
+use image::ImageBuffer;
+use image::RgbaImage;
+use miniquad::*;
 
-    pub fn y(&self) -> f32 {
-        self.0.Y
-    }
-}
+use crate::model_resource::Live2DModelResource;
 
-#[derive(Debug, Clone)]
-pub struct Live2DReadCanvasInfo {
-    /// キャンバスサイズ
-    pub out_size_in_pixels: Live2DVector2,
-    /// キャンバスの中心点
-    pub out_origin_in_pixels: Live2DVector2,
-    /// モデルのユニットの大きさ
-    pub out_pixels_per_unit: f32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Live2DModel {
-    _model_address: Live2DAddress,
-    _moc_address: Live2DAddress,
-
-    model: *mut live2d_mini_sys::csmModel,
+    pub model_resource: Live2DModelResource,
+    pub animations: Vec<Animation>,
+    pub textures: Vec<RgbaImage>,
 }
 
 impl Live2DModel {
-    /// moc3ファイルを読み込んでLive2DModelを生成する
-    pub fn new<T>(moc_path: T) -> Self
+    pub fn new<P>(path: P) -> Self
     where
-        T: AsRef<Path>,
+        P: AsRef<Path>,
     {
-        Self::read_blob_aligned(moc_path.as_ref()).expect("path error")
-    }
+        let path = Path::new(path.as_ref());
 
-    pub fn update(&self) {
-        self.csm_reset_drawable_dynamic_flags();
-        self.csm_update_model();
-    }
+        let current_dir = path.parent().expect("cannot find parents");
 
-    pub fn iter_drawables<'a>(&'a self) -> Live2DDrawableIter<'a> {
-        Live2DDrawableIter {
-            pos: 0,
-            len: self.csm_get_drawable_count(),
+        let file = File::open(path).expect(&format!("cannot open file: {:?}", path.to_str()));
+        let reader = BufReader::new(file);
 
-            inner: self,
-        }
-    }
-
-    pub fn iter_sorted_drawables<'a>(&'a self) -> Live2DSortedDrawableIter<'a> {
-        // なんとかする
-        let mut work_vec = self
-            .csm_get_drawable_render_orders()
+        let model_json: model_json::ModelJson =
+            serde_json::from_reader(reader).expect("deselialize error");
+        let textures = model_json
+            .FileReferences
+            .Textures
             .iter()
-            .enumerate()
-            .map(|(index, order)| (index, order))
-            .collect::<Vec<(usize, &i32)>>();
-
-        work_vec.sort_by(|a, b| b.1.cmp(a.1));
-
-        let sorted_indices = work_vec
-            .into_iter()
-            .map(|(index, _)| index)
-            .collect::<Vec<usize>>();
-
-        Live2DSortedDrawableIter {
-            sorted_indices,
-
-            inner: self,
-        }
-    }
-
-    pub fn iter_parameters<'a>(&'a self) -> Live2DParameterIter<'a> {
-        Live2DParameterIter {
-            pos: 0,
-            len: self.csm_get_parameter_count(),
-
-            inner: self,
-        }
-    }
-
-    pub fn iter_mut_parameters<'a>(&'a self) -> Live2DParameterIterMut<'a> {
-        Live2DParameterIterMut {
-            pos: 0,
-            len: self.csm_get_parameter_count(),
-
-            inner: self,
-        }
-    }
-
-    pub fn iter_parts<'a>(&'a self) -> Live2DPartIter<'a> {
-        Live2DPartIter {
-            pos: 0,
-            len: self.csm_get_part_count(),
-
-            inner: self,
-        }
-    }
-
-    pub fn iter_mut_parts<'a>(&'a self) -> Live2DPartIterMut<'a> {
-        Live2DPartIterMut {
-            pos: 0,
-            len: self.csm_get_part_count(),
-
-            inner: self,
-        }
-    }
-
-    unsafe fn allocate_aligned(size: usize, align: usize) -> Result<Live2DAddress, LayoutError> {
-        let layout = Layout::from_size_align(size, align)?;
-        Ok(Live2DAddress {
-            ptr: alloc_zeroed(layout),
-            layout,
-        })
-    }
-
-    fn read_blob_aligned(path: &Path) -> io::Result<Self> {
-        let mut file = File::open(Path::new(path))?;
-        let file_size = file.metadata()?.len() as usize;
-
-        unsafe {
-            // このアドレスを破棄の対象にする
-            let moc_address =
-                Self::allocate_aligned(file_size, live2d_mini_sys::csmAlignofMoc as _)
-                    .expect("allocate error");
-            let moc_slice =
-                std::slice::from_raw_parts_mut(moc_address.ptr, moc_address.layout.size());
-            file.read(moc_slice)?;
-            let moc = live2d_mini_sys::csmReviveMocInPlace(moc_address.ptr as _, file_size as _);
-
-            let model_size = live2d_mini_sys::csmGetSizeofModel(moc);
-            // このアドレスを破棄の対象にする
-            let model_address =
-                Self::allocate_aligned(model_size as _, live2d_mini_sys::csmAlignofModel as _)
-                    .expect("allocate error");
-            let model =
-                live2d_mini_sys::csmInitializeModelInPlace(moc, model_address.ptr as _, model_size);
-
-            Ok(Self {
-                _model_address: model_address,
-                _moc_address: moc_address,
-
-                model,
+            .map(|path| {
+                // Rc::new(
+                image::io::Reader::open(current_dir.join(path))
+                    .expect("not find image")
+                    .decode()
+                    .expect("decode faild")
+                    .flipv()
+                    .to_rgba8()
+                // )
             })
+            .collect::<Vec<RgbaImage>>();
+
+        let model_resource =
+            Live2DModelResource::new(current_dir.join(model_json.FileReferences.Moc));
+        // let file =
+        //     File::open(current_dir.join(model_json.FileReferences.Pose.expect(""))).expect("");
+        // let reader = BufReader::new(file);
+        // let u: pose_json::PoseJson = serde_json::from_reader(reader).expect("");
+        let motions = model_json
+            .FileReferences
+            .Motions
+            .expect("")
+            .Idle
+            .iter()
+            .map(|idle| {
+                let file = File::open(current_dir.join(&idle.File)).expect("");
+                let reader = BufReader::new(file);
+                serde_json::from_reader(reader).expect("deselialize error")
+            })
+            .collect::<Vec<motion_json::MotionJson>>();
+
+        let animations = motions
+            .iter()
+            .map(|motion| Animation::new(motion))
+            .collect::<Vec<Animation>>();
+
+        Live2DModel {
+            model_resource,
+            animations,
+            textures,
         }
     }
 
-    pub fn csm_read_canvas_info(&self) -> Live2DReadCanvasInfo {
-        unsafe {
-            let mut out_size_in_pixels: Live2DVector2 = std::mem::zeroed();
-            let mut out_origin_in_pixels: Live2DVector2 = std::mem::zeroed();
-            let mut out_pixels_per_unit: f32 = 0.0;
-            live2d_mini_sys::csmReadCanvasInfo(
-                self.model,
-                &mut out_size_in_pixels.0,
-                &mut out_origin_in_pixels.0,
-                &mut out_pixels_per_unit,
-            );
-
-            Live2DReadCanvasInfo {
-                out_size_in_pixels,
-                out_origin_in_pixels,
-                out_pixels_per_unit,
-            }
+    pub fn animation(&self, index: usize, time: f32) {
+        if let Some(anime) = self.animations.get(index) {
+            anime.evaluate_animation(&self.model_resource, time)
+        } else {
+            panic!()
         }
-    }
-
-    /// 更新を適用する
-    #[inline]
-    pub fn csm_update_model(&self) {
-        unsafe { live2d_mini_sys::csmUpdateModel(self.model) }
-    }
-
-    #[inline]
-    pub fn csm_get_parameter_count(&self) -> usize {
-        unsafe {
-            let size = live2d_mini_sys::csmGetParameterCount(self.model);
-            assert_ne!(size, -1);
-
-            size as usize
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_parameter_ids(&self) -> &[*const c_char] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetParameterIds(self.model),
-                self.csm_get_parameter_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_parameter_minimum_values(&self) -> &[f32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetParameterMinimumValues(self.model),
-                self.csm_get_parameter_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_parameter_maximum_values(&self) -> &[f32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetParameterMaximumValues(self.model),
-                self.csm_get_parameter_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_parameter_default_values<'a>(&self) -> &[f32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetParameterDefaultValues(self.model),
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    // ここに書き込むとmodelが操作できる
-    #[inline]
-    pub fn csm_get_parameter_values<'a>(&self) -> &mut [f32] {
-        unsafe {
-            std::slice::from_raw_parts_mut(
-                live2d_mini_sys::csmGetParameterValues(self.model),
-                self.csm_get_part_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_part_count(&self) -> usize {
-        unsafe {
-            let size = live2d_mini_sys::csmGetPartCount(self.model);
-            assert_ne!(size, -1);
-
-            size as usize
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_part_ids(&self) -> &[*const c_char] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetPartIds(self.model),
-                self.csm_get_part_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_part_opacities(&self) -> &mut [f32] {
-        unsafe {
-            std::slice::from_raw_parts_mut(
-                live2d_mini_sys::csmGetPartOpacities(self.model),
-                self.csm_get_part_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_part_parent_part_indices(&self) -> &[i32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetPartParentPartIndices(self.model),
-                self.csm_get_part_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_drawable_count(&self) -> usize {
-        unsafe {
-            let size = live2d_mini_sys::csmGetDrawableCount(self.model);
-            assert_ne!(size, -1);
-
-            size as usize
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_drawable_ids<'a>(&self) -> &[*const c_char] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableIds(self.model),
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_drawable_constant_flags(&self) -> &[Live2DConstantFlag] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableConstantFlags(self.model)
-                    as *const Live2DConstantFlag,
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_drawable_dynamic_flags(&self) -> &[Live2DDynamicFlag] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableDynamicFlags(self.model) as *const Live2DDynamicFlag,
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_drawable_texture_indices(&self) -> &[i32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableTextureIndices(self.model),
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_drawable_draw_orders(&self) -> &[i32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableDrawOrders(self.model),
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_drawable_render_orders(&self) -> &[i32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableRenderOrders(self.model),
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_drawable_opacities(&self) -> &[f32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableOpacities(self.model),
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_drawable_mask_counts(&self) -> &[i32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableMaskCounts(self.model),
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    //配列の配列をなんとかする
-    #[inline]
-    pub fn csm_get_drawable_masks(&self) -> &[*const i32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableMasks(self.model),
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_drawable_vertex_counts(&self) -> &[i32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableVertexCounts(self.model),
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    //配列の配列をなんとかする
-    #[inline]
-    pub fn csm_get_drawable_vertex_positions(&self) -> &[*const Live2DVector2] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableVertexPositions(self.model) as _,
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    //配列の配列をなんとかする
-    #[inline]
-    pub fn csm_get_drawable_vertex_uvs(&self) -> &[*const Live2DVector2] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableVertexUvs(self.model) as _,
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_get_drawable_index_counts(&self) -> &[i32] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableIndexCounts(self.model),
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    //配列の配列をなんとかする
-    #[inline]
-    pub fn csm_get_drawable_indices(&self) -> &[*const u16] {
-        unsafe {
-            std::slice::from_raw_parts(
-                live2d_mini_sys::csmGetDrawableIndices(self.model),
-                self.csm_get_drawable_count(),
-            )
-        }
-    }
-
-    #[inline]
-    pub fn csm_reset_drawable_dynamic_flags(&self) {
-        unsafe { live2d_mini_sys::csmResetDrawableDynamicFlags(self.model) };
     }
 }

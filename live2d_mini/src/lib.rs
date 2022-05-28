@@ -1,8 +1,13 @@
 mod address;
-mod dynamic_flag;
-mod drawable;
+pub mod animation;
 mod constant_flag;
+mod drawable;
+mod dynamic_flag;
 pub mod model;
+mod model_json;
+pub mod model_resource;
+mod motion_json;
 mod parameter;
 mod part;
+mod pose_json;
 mod vector2;
