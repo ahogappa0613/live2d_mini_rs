@@ -16,7 +16,7 @@ use miniquad::*;
 use crate::model_resource::Live2DModelResource;
 
 pub struct Live2DModel {
-    pub model_resource: Live2DModelResource,
+    pub resource: Live2DModelResource,
     pub animations: Vec<Animation>,
     pub textures: Vec<RgbaImage>,
 }
@@ -51,7 +51,7 @@ impl Live2DModel {
             })
             .collect::<Vec<RgbaImage>>();
 
-        let model_resource =
+        let resource =
             Live2DModelResource::new(current_dir.join(model_json.FileReferences.Moc));
         // let file =
         //     File::open(current_dir.join(model_json.FileReferences.Pose.expect(""))).expect("");
@@ -64,7 +64,7 @@ impl Live2DModel {
             .Idle
             .iter()
             .map(|idle| {
-                let file = File::open(current_dir.join(&idle.File)).expect("");
+                let file = File::open(current_dir.join(&idle.File)).expect("file open error");
                 let reader = BufReader::new(file);
                 serde_json::from_reader(reader).expect("deselialize error")
             })
@@ -76,15 +76,15 @@ impl Live2DModel {
             .collect::<Vec<Animation>>();
 
         Live2DModel {
-            model_resource,
+            resource,
             animations,
             textures,
         }
     }
 
-    pub fn animation(&self, index: usize, time: f32) {
-        if let Some(anime) = self.animations.get(index) {
-            anime.evaluate_animation(&self.model_resource, time)
+    pub fn animation(&mut self, index: usize, time: f32) {
+        if let Some(anime) = self.animations.get_mut(index) {
+            anime.evaluate_animation(&mut self.resource, time)
         } else {
             panic!()
         }

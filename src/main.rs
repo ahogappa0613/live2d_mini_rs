@@ -29,7 +29,8 @@ struct Stage {
 }
 impl Stage {
     pub fn new(ctx: &mut Context) -> Self {
-        let model = live2d_mini::model::Live2DModel::new("./resources/Hiyori/Hiyori.model3.json");
+        let mut model =
+            live2d_mini::model::Live2DModel::new("./resources/Hiyori/Hiyori.model3.json");
         let textures = model
             .textures
             .iter()
@@ -39,74 +40,14 @@ impl Stage {
             .collect::<Vec<Texture>>();
 
         let mut indices4 = vec![];
-        // let path = Path::new("./resources/Hiyori/Hiyori.model3.json");
-
-        // let current_dir = path.parent().unwrap();
-
-        // let file = File::open(path).unwrap();
-        // let reader = BufReader::new(file);
-
-        // let model_json: model_json::ModelJson = serde_json::from_reader(reader).unwrap();
-        // let textures: Vec<Texture> = model_json
-        //     .FileReferences
-        //     .Textures
-        //     .iter()
-        //     .map(|path| {
-        //         let img = image::io::Reader::open(current_dir.join(path))
-        //             .unwrap()
-        //             .decode()
-        //             .unwrap()
-        //             .flipv()
-        //             .to_rgba8();
-
-        //         Texture::from_rgba8(ctx, img.width() as _, img.height() as _, &img.into_raw())
-        //     })
-        //     .collect();
-        // // dbg!(&model_json);
-
-        // let mut indices4 = vec![];
-        // let model = live2d_mini::model_resource::Live2DModelResource::new(
-        //     current_dir.join(model_json.FileReferences.Moc),
-        // );
-        // let file = File::open(current_dir.join(model_json.FileReferences.Pose.unwrap())).unwrap();
-        // let reader = BufReader::new(file);
-        // let u: pose_json::PoseJson = serde_json::from_reader(reader).unwrap();
-        // // dbg!(&u);
-        // let motions = model_json
-        //     .FileReferences
-        //     .Motions
-        //     .unwrap()
-        //     .Idle
-        //     .iter()
-        //     .map(|idle| {
-        //         let file = File::open(current_dir.join(&idle.File)).unwrap();
-        //         let reader = BufReader::new(file);
-        //         serde_json::from_reader(reader).unwrap()
-        //     })
-        //     .collect::<Vec<motion_json::MotionJson>>();
-        // // dbg!(&motions);
-        // let anime1 = animation::Animation::new(&motions[2]);
         let mut bindings_vec = vec![];
-        // let info = model.model_resource.csm_read_canvas_info();
-        // let scale_x = info.out_size_in_pixels.x() / 1024.0 / 4.0;
-        // let scale_y = info.out_size_in_pixels.y() / 1024.0 / 4.0;
-        // dbg!(info.out_size_in_pixels);
-        // dbg!(info.out_pixels_per_unit);
-        // dbg!(info.out_origin_in_pixels);
-        // let scale = info.out_pixels_per_unit;
 
-        // for part in model.iter_mut_parts() {
-        //     if part.id() == "PartArmB" {
-        //         *part.opacitiy = 0.0;
-        //     }
-        // }
+        // 再生するアニメーションを変える
+        // 必ずupdateとセットで行う
+        model.animation(2, 0.0);
+        model.resource.update();
 
-        // dbg!(&anime1.duration);
-        // animation::evaluate_animation(&model, &anime1, 0.0);
-
-        // model.model_resource.update();
-
-        for (index, drawable) in model.model_resource.iter_sorted_drawables().enumerate() {
+        for (index, drawable) in model.resource.iter_sorted_drawables().enumerate() {
             if drawable.dynamic_flag().is_csm_is_visible() && drawable.indices().is_some() {
                 // dbg!(index);
                 let vertex_positions = drawable.vertex_positions();
@@ -132,12 +73,12 @@ impl Stage {
                     index_buffer: Buffer::immutable(
                         ctx,
                         BufferType::IndexBuffer,
-                        drawable.indices().unwrap(),
+                        drawable.indices().unwrap_or(&[]),
                     ),
                     images: vec![textures[*drawable.texture_index() as usize]],
                 });
 
-                indices4.push(drawable.indices().unwrap().len());
+                indices4.push(drawable.indices().unwrap_or(&[]).len());
             }
         }
 
@@ -182,24 +123,19 @@ impl Stage {
 
 impl EventHandler for Stage {
     fn update(&mut self, ctx: &mut Context) {
-        // let time = miniquad::date::now();
-        // let delta = (time - self.start_time) / 1000.0;
         self.last_frame += 0.02;
 
         if self.last_frame > self.model.animations.get(2).unwrap().duration.into() {
             self.last_frame = 0.0;
         }
 
+        // 再生するアニメーションを変える
+        // 必ずupdateとセットで行う
         self.model.animation(2, self.last_frame as f32);
-        self.model.model_resource.update();
+        self.model.resource.update();
 
         let mut vertices4s = vec![];
-        for (index, drawable) in self
-            .model
-            .model_resource
-            .iter_sorted_drawables()
-            .enumerate()
-        {
+        for (index, drawable) in self.model.resource.iter_sorted_drawables().enumerate() {
             if drawable.dynamic_flag().is_csm_is_visible() && drawable.indices().is_some() {
                 // dbg!(index);
                 let vertex_positions = drawable.vertex_positions();
@@ -218,7 +154,6 @@ impl EventHandler for Stage {
                     });
                 }
                 vertices4s.push(vertices4);
-                // self.bindings[index].vertex_buffers[0].update(ctx, &vertices4);
             }
         }
 

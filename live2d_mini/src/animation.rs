@@ -106,6 +106,7 @@ impl Animation {
         }
     }
 
+    /// TODO
     pub fn add(json: &motion_json::MotionJson) {
         let duration = json.Meta.Duration;
         let curve_count = json.Meta.CurveCount;
@@ -140,9 +141,9 @@ impl Animation {
     }
 
     /// ある時間のアニメーションをmodel, parametor, opacityをそれぞれ実行する
-    pub fn evaluate_animation(&self, model: &Live2DModelResource, time: f32) {
+    pub fn evaluate_animation(&mut self, model: &Live2DModelResource, time: f32) {
         // dbg!(&animation.curves);
-        for (id, curve) in self.curves.iter() {
+        for (id, curve) in self.curves.iter_mut() {
             let value = curve.evaluate_curve(time);
 
             match curve.curve_type {
@@ -232,13 +233,17 @@ pub fn parse_segments(segments_vec: &Vec<f32>) -> Vec<AnimationCurveType> {
 }
 
 impl AnimationCurve {
-    pub fn evaluate_curve(&self, time: f32) -> f32 {
-        let target_segment = self.segments.iter().skip(self.evaluated_index);
+    pub fn evaluate_curve(&mut self, time: f32) -> f32 {
+        // let target_segment = self.segments.iter().skip(self.evaluated_index);
 
-        let hoge = self.curve_type;
+        // let hoge = self.curve_type;
+        // let (evaluate_index, target_segment) = self
         let target_segment = self
             .segments
             .iter()
+            // .skip(self.evaluated_index)
+            // .enumerate()
+            // .find(|(_, segment)| match segment {
             .find(|segment| match segment {
                 AnimationCurveType::Linear(p0, p1) => time >= p0.time && time <= p1.time,
                 AnimationCurveType::Bezier(p0, _, _, p3) => time >= p0.time && time <= p3.time,
@@ -246,7 +251,8 @@ impl AnimationCurve {
                 AnimationCurveType::InverseStepped(p0, p1) => time >= p0.time && time <= p1.time,
             })
             .expect("not find segment");
-
+        // dbg!(self.evaluated_index);
+        // self.evaluated_index += evaluate_index;
         target_segment.evaluate(time)
         // todo!()
     }
