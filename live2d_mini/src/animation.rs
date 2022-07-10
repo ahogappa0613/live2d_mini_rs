@@ -57,6 +57,7 @@ pub struct AnimationPoint {
 pub struct AnimationCurve {
     pub curve_type: AnimationType,
     pub segments: Vec<AnimationCurveType>,
+    /// どこまで再生したか
     pub evaluated_index: usize,
 }
 
@@ -165,6 +166,12 @@ impl Animation {
             }
         }
     }
+
+    pub fn reset_evaluate_indeies(&mut self) {
+        self.curves
+            .iter_mut()
+            .for_each(|curve| curve.1.evaluated_index = 0);
+    }
 }
 
 /// これなんとかしたい
@@ -234,27 +241,21 @@ pub fn parse_segments(segments_vec: &Vec<f32>) -> Vec<AnimationCurveType> {
 
 impl AnimationCurve {
     pub fn evaluate_curve(&mut self, time: f32) -> f32 {
-        // let target_segment = self.segments.iter().skip(self.evaluated_index);
-
-        // let hoge = self.curve_type;
-        // let (evaluate_index, target_segment) = self
-        let target_segment = self
+        let (evaluate_index, target_segment) = self
             .segments
             .iter()
-            // .skip(self.evaluated_index)
-            // .enumerate()
-            // .find(|(_, segment)| match segment {
-            .find(|segment| match segment {
+            .skip(self.evaluated_index)
+            .enumerate()
+            .find(|(_, segment)| match segment {
                 AnimationCurveType::Linear(p0, p1) => time >= p0.time && time <= p1.time,
                 AnimationCurveType::Bezier(p0, _, _, p3) => time >= p0.time && time <= p3.time,
                 AnimationCurveType::Stepped(p0, p1) => time >= p0.time && time <= p1.time,
                 AnimationCurveType::InverseStepped(p0, p1) => time >= p0.time && time <= p1.time,
             })
             .expect("not find segment");
-        // dbg!(self.evaluated_index);
-        // self.evaluated_index += evaluate_index;
+
+        self.evaluated_index = evaluate_index;
         target_segment.evaluate(time)
-        // todo!()
     }
 }
 

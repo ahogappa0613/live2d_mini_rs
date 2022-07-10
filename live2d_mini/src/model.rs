@@ -92,7 +92,7 @@ impl Live2DModel {
         {
             anime.evaluate_animation(&mut self.resource, time)
         } else {
-            panic!()
+            panic!("not find animation")
         }
         self.resource.update();
     }
@@ -100,6 +100,11 @@ impl Live2DModel {
     pub fn get_animation(&self) -> Option<&Animation> {
         self.animations
             .get(self.animation_index.expect("no set animation"))
+    }
+
+    pub fn get_mut_animation(&mut self) -> Option<&mut Animation> {
+        self.animations
+            .get_mut(self.animation_index.expect("no set animation"))
     }
 
     /// indexを設定した値にし

@@ -42,7 +42,7 @@ impl Stage {
         let mut indices4 = vec![];
         let mut bindings_vec = vec![];
 
-        model.reset_animation(4);
+        model.reset_animation(3);
 
         for (index, drawable) in model.resource.iter_sorted_drawables().enumerate() {
             if drawable.dynamic_flag().is_csm_is_visible() && drawable.indices().is_some() {
@@ -124,6 +124,10 @@ impl EventHandler for Stage {
 
         if self.last_frame > self.model.get_animation().unwrap().duration.into() {
             self.last_frame = 0.0;
+            self.model
+                .get_mut_animation()
+                .unwrap()
+                .reset_evaluate_indeies();
         }
 
         self.model.animation(self.last_frame as f32);
@@ -157,12 +161,12 @@ impl EventHandler for Stage {
                     index_buffer: Buffer::immutable(
                         ctx,
                         BufferType::IndexBuffer,
-                        drawable.indices().unwrap_or(&[]),
+                        drawable.indices().unwrap(),
                     ),
                     images: vec![self.textures[*drawable.texture_index() as usize]],
                 });
 
-                indices4.push(drawable.indices().unwrap_or(&[]).len());
+                indices4.push(drawable.indices().unwrap().len());
             }
         }
 
