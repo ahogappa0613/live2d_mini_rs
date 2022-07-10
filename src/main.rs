@@ -42,11 +42,11 @@ impl Stage {
         let mut indices4 = vec![];
         let mut bindings_vec = vec![];
 
-        model.reset_animation(1);
+        model.reset_animation(4);
 
         for (index, drawable) in model.resource.iter_sorted_drawables().enumerate() {
             if drawable.dynamic_flag().is_csm_is_visible() && drawable.indices().is_some() {
-                dbg!(&drawable.id());
+                // dbg!(&drawable.id());
                 let vertex_positions = drawable.vertex_positions();
                 let vertex_uvs = drawable.vertex_uvs();
                 let mut vertices4 = vec![];
@@ -133,7 +133,7 @@ impl EventHandler for Stage {
 
         for (index, drawable) in self.model.resource.iter_sorted_drawables().enumerate() {
             if drawable.dynamic_flag().is_csm_is_visible() && drawable.indices().is_some() {
-                dbg!(&drawable.id());
+                // dbg!(&drawable.id());
                 let vertex_positions = drawable.vertex_positions();
                 let vertex_uvs = drawable.vertex_uvs();
                 let mut vertices4 = vec![];
@@ -164,6 +164,11 @@ impl EventHandler for Stage {
 
                 indices4.push(drawable.indices().unwrap_or(&[]).len());
             }
+        }
+
+        for binding in self.bindings.iter_mut() {
+            binding.index_buffer.delete();
+            binding.vertex_buffers[0].delete();
         }
 
         self.bindings = bindings_vec;
