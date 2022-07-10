@@ -19,6 +19,8 @@ pub struct Live2DModel {
     pub resource: Live2DModelResource,
     pub animations: Vec<Animation>,
     pub textures: Vec<RgbaImage>,
+
+    animation_index: Option<usize>,
 }
 
 impl Live2DModel {
@@ -51,8 +53,7 @@ impl Live2DModel {
             })
             .collect::<Vec<RgbaImage>>();
 
-        let resource =
-            Live2DModelResource::new(current_dir.join(model_json.FileReferences.Moc));
+        let resource = Live2DModelResource::new(current_dir.join(model_json.FileReferences.Moc));
         // let file =
         //     File::open(current_dir.join(model_json.FileReferences.Pose.expect(""))).expect("");
         // let reader = BufReader::new(file);
@@ -79,14 +80,33 @@ impl Live2DModel {
             resource,
             animations,
             textures,
+
+            animation_index: None,
         }
     }
 
-    pub fn animation(&mut self, index: usize, time: f32) {
-        if let Some(anime) = self.animations.get_mut(index) {
+    pub fn animation(&mut self, time: f32) {
+        if let Some(anime) = self
+            .animations
+            .get_mut(self.animation_index.expect("no set animation"))
+        {
             anime.evaluate_animation(&mut self.resource, time)
         } else {
             panic!()
         }
+        self.resource.update();
+    }
+
+    pub fn get_animation(&self) -> Option<&Animation> {
+        self.animations
+            .get(self.animation_index.expect("no set animation"))
+    }
+
+    /// indexを設定した値にし
+    /// 再生時間を0にする
+    pub fn reset_animation(&mut self, index: usize) {
+        self.animation_index = Some(index);
+        self.animation(0.0);
+        self.resource.update();
     }
 }

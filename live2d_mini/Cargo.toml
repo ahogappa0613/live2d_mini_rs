@@ -9,5 +9,5 @@ live2d_mini_sys={path="../live2d_mini_sys"}
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 
-miniquad = { version = "=0.3.0-alpha.42"}
+miniquad = { version = "0.3.3"}
 image = "0.24"

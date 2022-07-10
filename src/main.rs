@@ -25,7 +25,7 @@ struct Stage {
     // anime: live2d_mini::animation::Animation,
     start_time: f64,
     last_frame: f64,
-    // model: live2d_mini::model_resource::Live2DModelResource,
+    textures: Vec<Texture>, // model: live2d_mini::model_resource::Live2DModelResource,
 }
 impl Stage {
     pub fn new(ctx: &mut Context) -> Self {
@@ -42,14 +42,11 @@ impl Stage {
         let mut indices4 = vec![];
         let mut bindings_vec = vec![];
 
-        // 再生するアニメーションを変える
-        // 必ずupdateとセットで行う
-        model.animation(2, 0.0);
-        model.resource.update();
+        model.reset_animation(1);
 
         for (index, drawable) in model.resource.iter_sorted_drawables().enumerate() {
             if drawable.dynamic_flag().is_csm_is_visible() && drawable.indices().is_some() {
-                // dbg!(index);
+                dbg!(&drawable.id());
                 let vertex_positions = drawable.vertex_positions();
                 let vertex_uvs = drawable.vertex_uvs();
                 let mut vertices4 = vec![];
@@ -106,7 +103,7 @@ impl Stage {
         );
 
         let time = miniquad::date::now();
-
+        dbg!("----------------------------------------------------------------------------");
         Stage {
             pipeline: pipeline1,
             bindings: bindings_vec,
@@ -116,7 +113,7 @@ impl Stage {
             // anime: anime1,
             start_time: time,
             last_frame: 0.0,
-            // model,
+            textures, // model,
         }
     }
 }
@@ -125,19 +122,18 @@ impl EventHandler for Stage {
     fn update(&mut self, ctx: &mut Context) {
         self.last_frame += 0.02;
 
-        if self.last_frame > self.model.animations.get(2).unwrap().duration.into() {
+        if self.last_frame > self.model.get_animation().unwrap().duration.into() {
             self.last_frame = 0.0;
         }
 
-        // 再生するアニメーションを変える
-        // 必ずupdateとセットで行う
-        self.model.animation(2, self.last_frame as f32);
-        self.model.resource.update();
+        self.model.animation(self.last_frame as f32);
 
-        let mut vertices4s = vec![];
+        let mut indices4 = vec![];
+        let mut bindings_vec = vec![];
+
         for (index, drawable) in self.model.resource.iter_sorted_drawables().enumerate() {
             if drawable.dynamic_flag().is_csm_is_visible() && drawable.indices().is_some() {
-                // dbg!(index);
+                dbg!(&drawable.id());
                 let vertex_positions = drawable.vertex_positions();
                 let vertex_uvs = drawable.vertex_uvs();
                 let mut vertices4 = vec![];
@@ -153,13 +149,25 @@ impl EventHandler for Stage {
                         },
                     });
                 }
-                vertices4s.push(vertices4);
+
+                let buf = Buffer::immutable(ctx, BufferType::VertexBuffer, &vertices4);
+
+                bindings_vec.push(Bindings {
+                    vertex_buffers: vec![buf],
+                    index_buffer: Buffer::immutable(
+                        ctx,
+                        BufferType::IndexBuffer,
+                        drawable.indices().unwrap_or(&[]),
+                    ),
+                    images: vec![self.textures[*drawable.texture_index() as usize]],
+                });
+
+                indices4.push(drawable.indices().unwrap_or(&[]).len());
             }
         }
 
-        for (index, bind) in self.bindings.iter().enumerate() {
-            bind.vertex_buffers[0].update(ctx, &vertices4s[index])
-        }
+        self.bindings = bindings_vec;
+        self.max = indices4;
     }
 
     fn draw(&mut self, ctx: &mut Context) {
@@ -186,7 +194,7 @@ fn main() {
             high_dpi: true,
             ..Default::default()
         },
-        |mut ctx| UserData::owning(Stage::new(&mut ctx), ctx),
+        |mut ctx| Box::new(Stage::new(&mut ctx)),
     );
 }
 
