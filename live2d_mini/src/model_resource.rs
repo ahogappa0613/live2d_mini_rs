@@ -17,12 +17,58 @@ use crate::part::*;
 #[derive(Debug, Clone)]
 pub struct Live2DVector2(live2d_mini_sys::csmVector2);
 impl Live2DVector2 {
+    #[inline]
     pub fn x(&self) -> f32 {
         self.0.X
     }
 
+    #[inline]
     pub fn y(&self) -> f32 {
         self.0.Y
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Live2DVector4(live2d_mini_sys::csmVector4);
+impl Live2DVector4 {
+    #[inline]
+    pub fn x(&self) -> f32 {
+        self.0.X
+    }
+
+    #[inline]
+    pub fn y(&self) -> f32 {
+        self.0.Y
+    }
+
+    #[inline]
+    pub fn z(&self) -> f32 {
+        self.0.Z
+    }
+
+    #[inline]
+    pub fn w(&self) -> f32 {
+        self.0.W
+    }
+
+    #[inline]
+    pub fn r(&self) -> f32 {
+        self.x()
+    }
+
+    #[inline]
+    pub fn g(&self) -> f32 {
+        self.y()
+    }
+
+    #[inline]
+    pub fn b(&self) -> f32 {
+        self.z()
+    }
+
+    #[inline]
+    pub fn a(&self) -> f32 {
+        self.w()
     }
 }
 
@@ -253,6 +299,26 @@ impl Live2DModelResource {
     }
 
     #[inline]
+    pub fn csm_get_parameter_key_counts<'a>(&self) -> &[i32] {
+        unsafe {
+            std::slice::from_raw_parts(
+                live2d_mini_sys::csmGetParameterKeyCounts(self.model),
+                self.csm_get_part_count(),
+            )
+        }
+    }
+
+    #[inline]
+    pub fn csm_get_parameter_key_values<'a>(&self) -> &[*const f32] {
+        unsafe {
+            std::slice::from_raw_parts(
+                live2d_mini_sys::csmGetParameterKeyValues(self.model),
+                self.csm_get_part_count(),
+            )
+        }
+    }
+
+    #[inline]
     pub fn csm_get_part_count(&self) -> usize {
         unsafe {
             let size = live2d_mini_sys::csmGetPartCount(self.model);
@@ -450,5 +516,25 @@ impl Live2DModelResource {
     #[inline]
     pub fn csm_reset_drawable_dynamic_flags(&self) {
         unsafe { live2d_mini_sys::csmResetDrawableDynamicFlags(self.model) };
+    }
+
+    #[inline]
+    pub fn csm_get_drawable_multiply_colors(&self) -> &[*const Live2DVector4] {
+        unsafe {
+            std::slice::from_raw_parts(
+                live2d_mini_sys::csmGetDrawableMultiplyColors(self.model) as _,
+                self.csm_get_drawable_count(),
+            )
+        }
+    }
+
+    #[inline]
+    pub fn csm_get_drawable_screen_colors(&self) -> &[Live2DVector4] {
+        unsafe {
+            std::slice::from_raw_parts(
+                live2d_mini_sys::csmGetDrawableScreenColors(self.model) as _,
+                self.csm_get_drawable_count(),
+            )
+        }
     }
 }

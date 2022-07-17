@@ -1,17 +1,13 @@
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
-use std::rc::Rc;
 
-use crate::animation;
 use crate::animation::*;
 use crate::model_json;
 use crate::motion_json;
 use crate::pose_json;
 
-use image::ImageBuffer;
 use image::RgbaImage;
-use miniquad::*;
 
 use crate::model_resource::Live2DModelResource;
 
@@ -42,14 +38,12 @@ impl Live2DModel {
             .Textures
             .iter()
             .map(|path| {
-                // Rc::new(
                 image::io::Reader::open(current_dir.join(path))
                     .expect("not find image")
                     .decode()
                     .expect("decode faild")
                     .flipv()
                     .to_rgba8()
-                // )
             })
             .collect::<Vec<RgbaImage>>();
 
