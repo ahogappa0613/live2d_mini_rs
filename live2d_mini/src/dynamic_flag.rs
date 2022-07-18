@@ -54,4 +54,15 @@ impl Live2DDynamicFlag {
             false
         }
     }
+
+    #[inline]
+    pub fn is_csm_blend_color_did_change(&self) -> bool {
+        if (self.0 as u32 & live2d_mini_sys::csmBlendColorDidChange)
+            == live2d_mini_sys::csmBlendColorDidChange
+        {
+            true
+        } else {
+            false
+        }
+    }
 }

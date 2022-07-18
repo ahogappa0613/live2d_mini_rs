@@ -258,6 +258,16 @@ impl Live2DModelResource {
     }
 
     #[inline]
+    pub fn csm_get_parameter_types(&self) -> &[i32] {
+        unsafe {
+            std::slice::from_raw_parts(
+                live2d_mini_sys::csmGetParameterTypes(self.model),
+                self.csm_get_parameter_count(),
+            )
+        }
+    }
+
+    #[inline]
     pub fn csm_get_parameter_minimum_values(&self) -> &[f32] {
         unsafe {
             std::slice::from_raw_parts(
@@ -533,6 +543,16 @@ impl Live2DModelResource {
         unsafe {
             std::slice::from_raw_parts(
                 live2d_mini_sys::csmGetDrawableScreenColors(self.model) as _,
+                self.csm_get_drawable_count(),
+            )
+        }
+    }
+
+    #[inline]
+    pub fn csm_get_drawable_parent_part_indices(&self) -> &[i32] {
+        unsafe {
+            std::slice::from_raw_parts(
+                live2d_mini_sys::csmGetDrawableParentPartIndices(self.model),
                 self.csm_get_drawable_count(),
             )
         }
