@@ -263,11 +263,42 @@ impl AnimationCurveType {
     pub fn evaluate(&self, time: f32) -> f32 {
         match self {
             AnimationCurveType::Linear(p0, p1) => {
-                let t = (time - p0.time) / (p1.time - p0.time);
+                let mut t = (time - p0.time) / (p1.time - p0.time);
+                if t < 0.0 {
+                    t = 0.0;
+                }
+
                 p0.value + ((p1.value - p0.value) * t)
             }
             AnimationCurveType::Bezier(p0, p1, p2, p3) => {
-                let t = (time - p0.time) / (p3.time - p0.time);
+                // 以下は古い方式
+                // let mut t = (time - p0.time) / (p3.time - p0.time);
+                // if t < 0.0 {
+                //     t = 0.0;
+                // }
+
+                // let p01 = Self::lerp_points(&p0, &p1, t);
+                // let p12 = Self::lerp_points(&p1, &p2, t);
+                // let p23 = Self::lerp_points(&p2, &p3, t);
+
+                // let p012 = Self::lerp_points(&p01, &p12, t);
+                // let p123 = Self::lerp_points(&p12, &p23, t);
+
+                // Self::lerp_points(&p012, &p123, t).value
+
+                // 最新方式
+                let x = time;
+                let x1 = p0.time;
+                let x2 = p3.time;
+                let cx1 = p1.time;
+                let cx2 = p2.time;
+
+                let a = x2 - 3.0 * cx2 + 3.0 * cx1 - x1;
+                let b = 3.0 * cx2 - 6.0 * cx1 + 3.0 * x1;
+                let c = 3.0 * cx1 - 3.0 * x1;
+                let d = x1 - x;
+
+                let t = Self::cardano_algorithm_for_bezier(a, b, c, d);
 
                 let p01 = Self::lerp_points(&p0, &p1, t);
                 let p12 = Self::lerp_points(&p1, &p2, t);
@@ -289,5 +320,145 @@ impl AnimationCurveType {
             time: a.time + ((b.time - a.time) * t),
             value: a.value + ((b.value - a.value) * t),
         }
+    }
+
+    fn quadration_equation(a: f32, b: f32, c: f32) -> f32 {
+        if a.abs() < std::f32::EPSILON {
+            if b.abs() < std::f32::EPSILON {
+                return -c;
+            }
+            return -c / b;
+        }
+
+        return -(b + (b * b - 4.0 * a * c).sqrt()) / (2.0 * a);
+    }
+
+    fn cardano_algorithm_for_bezier(a: f32, b: f32, c: f32, d: f32) -> f32 {
+        if a.abs() < std::f32::EPSILON {
+            return Self::quadration_equation(b, c, d).clamp(0.0, 1.0);
+        }
+
+        let ba = b / a;
+        let ca = c / a;
+        let da = d / a;
+
+        let p = (3.0 * ca - ba * ba) / 3.0;
+        let p3 = p / 3.0;
+        let q = (2.0 * ba * ba * ba - 9.0 * ba * ca + 27.0 * da) / 27.0;
+        let q2 = q / 2.0;
+        let discriminant = q2 * q2 + p3 * p3 * p3;
+
+        let center = 0.5;
+        let threshold = center + 0.01;
+
+        if discriminant < 0.0 {
+            let mp3 = -p / 3.0;
+            let mp33 = mp3 * mp3 * mp3;
+            let r = mp33.sqrt();
+            let t = -q / (2.0 * r);
+            let cosphi = t.clamp(-1.0, 1.0);
+            let phi = cosphi.acos();
+            let crtr = r.cbrt();
+            let t1 = 2.0 * crtr;
+
+            let root1 = t1 * (phi / 3.0).cos() - ba / 3.0;
+            if (root1 - center).abs() < threshold {
+                return root1.clamp(0.0, 1.0);
+            }
+
+            let root2 = t1 * ((phi + 2.0 * std::f32::consts::PI) / 3.0).cos() - ba / 3.0;
+            if (root2 - center).abs() < threshold {
+                return root2.clamp(0.0, 1.0);
+            }
+
+            let root3 = t1 * ((phi + 4.0 * std::f32::consts::PI) / 3.0).cos() - ba / 3.0;
+            return root3.clamp(0.0, 1.0);
+        }
+
+        if discriminant == 0.0 {
+            let u1 = if q2 < 0.0 { (-q2).cbrt() } else { -(q2.cbrt()) };
+
+            let root1 = 2.0 * u1 - ba / 3.0;
+            if (root1 - center).abs() < threshold {
+                return root1.clamp(0.0, 1.0);
+            }
+
+            let root2 = -u1 - ba / 3.0;
+            if (root2 - center).abs() < threshold {
+                return root2.clamp(0.0, 1.0);
+            }
+        }
+
+        let sd = discriminant.sqrt();
+        let u1 = (sd - q2).cbrt();
+        let v1 = (sd + q2).cbrt();
+        let root1 = u1 - v1 - ba / 3.0;
+
+        root1.clamp(0.0, 1.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn lerp_points_test() {
+        use super::*;
+
+        let a = AnimationPoint {
+            time: 0.0,
+            value: 18.0,
+        };
+        let b = AnimationPoint {
+            time: 0.210999995,
+            value: 18.0,
+        };
+
+        let t = AnimationCurveType::lerp_points(&a, &b, -0.0);
+
+        assert_eq!(
+            t,
+            AnimationPoint {
+                time: 0.0,
+                value: 18.0
+            }
+        );
+
+        let a = AnimationPoint {
+            time: 0.210999995,
+            value: 18.0,
+        };
+        let b = AnimationPoint {
+            time: 0.421999991,
+            value: 0.0,
+        };
+
+        let t = AnimationCurveType::lerp_points(&a, &b, -0.0);
+
+        assert_eq!(
+            t,
+            AnimationPoint {
+                time: 0.210999995,
+                value: 18.0
+            }
+        );
+
+        let a = AnimationPoint {
+            time: 0.0,
+            value: 1.0,
+        };
+        let b = AnimationPoint {
+            time: 0.333000004,
+            value: 1.0,
+        };
+
+        let t = AnimationCurveType::lerp_points(&a, &b, 0.00000154972076);
+
+        assert_eq!(
+            t,
+            AnimationPoint {
+                time: 5.16057014e-7,
+                value: 1.0
+            }
+        );
     }
 }
