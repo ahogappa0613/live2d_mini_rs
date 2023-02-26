@@ -42,23 +42,26 @@ impl Stage {
         let mut indices4 = vec![];
         let mut bindings_vec = vec![];
 
-        model.reset_animation(3);
+        model.reset_animation(1);
+
+        // dbg!(&model.physics);
 
         for (index, drawable) in model.resource.iter_sorted_drawables().enumerate() {
             if drawable.dynamic_flag().is_csm_is_visible() && drawable.indices().is_some() {
-                // dbg!(&drawable.id());
-                let vertex_positions = drawable.vertex_positions();
-                let vertex_uvs = drawable.vertex_uvs();
                 let mut vertices4 = vec![];
-                for i in 0..*drawable.vertex_count() as usize {
+                for (pos, uv) in drawable
+                    .vertex_positions()
+                    .iter()
+                    .zip(drawable.vertex_uvs())
+                {
                     vertices4.push(Vertex {
                         pos: Vec2 {
-                            x: vertex_positions[i].x(),
-                            y: vertex_positions[i].y(),
+                            x: pos.x(),
+                            y: pos.y(),
                         },
                         uv: Vec2 {
-                            x: vertex_uvs[i].x(),
-                            y: vertex_uvs[i].y(),
+                            x: uv.x(),
+                            y: uv.y(),
                         },
                     });
                 }
@@ -103,7 +106,7 @@ impl Stage {
         );
 
         let time = miniquad::date::now();
-        dbg!("----------------------------------------------------------------------------");
+        // dbg!("----------------------------------------------------------------------------");
         Stage {
             pipeline: pipeline1,
             bindings: bindings_vec,
@@ -118,7 +121,7 @@ impl Stage {
     }
 }
 
-impl EventHandler for Stage {
+impl<'a> EventHandler for Stage {
     fn update(&mut self, ctx: &mut Context) {
         self.last_frame += 0.02;
 
@@ -129,27 +132,34 @@ impl EventHandler for Stage {
                 .unwrap()
                 .reset_evaluate_indeies();
         }
-
+        // self.model.evaluate_physic(0.01);
         self.model.animation(self.last_frame as f32);
+        self.model.evaluate_physic(0.01);
+
+        // self.model.resource.csm_update_model();
+
+        self.model.resource.csm_update_model();
 
         let mut indices4 = vec![];
         let mut bindings_vec = vec![];
 
-        for (index, drawable) in self.model.resource.iter_sorted_drawables().enumerate() {
+        for drawable in self.model.resource.iter_sorted_drawables() {
             if drawable.dynamic_flag().is_csm_is_visible() && drawable.indices().is_some() {
                 // dbg!(&drawable.id());
-                let vertex_positions = drawable.vertex_positions();
-                let vertex_uvs = drawable.vertex_uvs();
                 let mut vertices4 = vec![];
-                for i in 0..*drawable.vertex_count() as usize {
+                for (pos, uv) in drawable
+                    .vertex_positions()
+                    .iter()
+                    .zip(drawable.vertex_uvs())
+                {
                     vertices4.push(Vertex {
                         pos: Vec2 {
-                            x: vertex_positions[i].x(),
-                            y: vertex_positions[i].y(),
+                            x: pos.x(),
+                            y: pos.y(),
                         },
                         uv: Vec2 {
-                            x: vertex_uvs[i].x(),
-                            y: vertex_uvs[i].y(),
+                            x: uv.x(),
+                            y: uv.y(),
                         },
                     });
                 }
@@ -170,6 +180,7 @@ impl EventHandler for Stage {
             }
         }
 
+        // 全部取っ替える
         for binding in self.bindings.iter_mut() {
             binding.index_buffer.delete();
             binding.vertex_buffers[0].delete();
@@ -196,7 +207,7 @@ impl EventHandler for Stage {
 fn main() {
     miniquad::start(
         conf::Conf {
-            window_title: "Miniquad".to_string(),
+            window_title: "live2d_mini_rs_demo".to_string(),
             window_width: 1024,
             window_height: 1024,
             fullscreen: false,
