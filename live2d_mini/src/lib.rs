@@ -9,5 +9,7 @@ mod model_resource;
 mod motion_json;
 mod parameter;
 mod part;
+mod physic_json;
 mod pose_json;
 mod vector2;
+mod physic;

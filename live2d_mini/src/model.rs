@@ -1,3 +1,4 @@
+
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -5,21 +6,26 @@ use std::path::Path;
 use crate::animation::*;
 use crate::model_json;
 use crate::motion_json;
-use crate::pose_json;
+use crate::physic_json;
+
 
 use image::RgbaImage;
 
 use crate::model_resource::Live2DModelResource;
+use crate::physic::Physics;
 
+#[derive(Debug)]
 pub struct Live2DModel {
     pub resource: Live2DModelResource,
     pub animations: Vec<Animation>,
     pub textures: Vec<RgbaImage>,
+    pub physics: Option<Physics>,
 
+    /// 再生するアニメーションの番号
     animation_index: Option<usize>,
 }
 
-impl Live2DModel {
+impl<'a> Live2DModel {
     pub fn new<P>(path: P) -> Self
     where
         P: AsRef<Path>,
@@ -33,6 +39,7 @@ impl Live2DModel {
 
         let model_json: model_json::ModelJson =
             serde_json::from_reader(reader).expect("deselialize error");
+
         let textures = model_json
             .FileReferences
             .Textures
@@ -52,6 +59,19 @@ impl Live2DModel {
         //     File::open(current_dir.join(model_json.FileReferences.Pose.expect(""))).expect("");
         // let reader = BufReader::new(file);
         // let u: pose_json::PoseJson = serde_json::from_reader(reader).expect("");
+
+        let physics = if let Some(physics_path) = model_json.FileReferences.Physics {
+            let file = File::open(current_dir.join(physics_path)).expect("open error");
+            let reader = BufReader::new(file);
+            let physic_json: physic_json::PhysicJson =
+                serde_json::from_reader(reader).expect("load error");
+            let mut raw_physics = Physics::new(physic_json);
+            raw_physics.initialize();
+            Some(raw_physics)
+        } else {
+            None
+        };
+
         let motions = model_json
             .FileReferences
             .Motions
@@ -74,7 +94,7 @@ impl Live2DModel {
             resource,
             animations,
             textures,
-
+            physics,
             animation_index: None,
         }
     }
@@ -88,7 +108,6 @@ impl Live2DModel {
         } else {
             panic!("not find animation")
         }
-        self.resource.update();
     }
 
     pub fn get_animation(&self) -> Option<&Animation> {
@@ -101,11 +120,29 @@ impl Live2DModel {
             .get_mut(self.animation_index.expect("no set animation"))
     }
 
+    pub fn evaluate_physic(&mut self, delta_time: f32) {
+        if let Some(physic) = self.physics.as_mut() {
+            physic.evaluate(&mut self.resource, delta_time)
+        }
+    }
+
     /// indexを設定した値にし
     /// 再生時間を0にする
     pub fn reset_animation(&mut self, index: usize) {
         self.animation_index = Some(index);
         self.animation(0.0);
+        self.replace_default_values();
         self.resource.update();
+    }
+
+    fn replace_default_values(&self) {
+        for (value, default_value) in self
+            .resource
+            .csm_get_mut_parameter_values()
+            .iter_mut()
+            .zip(self.resource.csm_get_parameter_default_values())
+        {
+            *value = *default_value;
+        }
     }
 }
