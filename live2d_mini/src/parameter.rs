@@ -4,31 +4,17 @@ use crate::model_resource::Live2DModelResource;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Live2DParameter<'a> {
-    id: &'a *const c_char,
-    minimum_value: &'a f32,
-    maximum_value: &'a f32,
-    default_value: &'a f32,
+    pub id: &'a *const c_char,
+    pub minimum_value: &'a f32,
+    pub maximum_value: &'a f32,
+    pub default_value: &'a f32,
+    pub value: &'a f32,
 }
 
 impl<'a> Live2DParameter<'a> {
     #[inline]
     pub fn id(&self) -> &str {
         unsafe { CStr::from_ptr(*self.id).to_str().expect("id error") }
-    }
-
-    #[inline]
-    pub fn minimum_value(&self) -> &f32 {
-        self.minimum_value
-    }
-
-    #[inline]
-    pub fn maximum_value(&self) -> &f32 {
-        self.maximum_value
-    }
-
-    #[inline]
-    pub fn default_value(&self) -> &f32 {
-        self.default_value
     }
 }
 
@@ -67,6 +53,10 @@ impl<'a> Iterator for Live2DParameterIter<'a> {
                         .inner
                         .csm_get_parameter_default_values()
                         .get_unchecked(self.pos - 1),
+                    value: self
+                        .inner
+                        .csm_get_parameter_values()
+                        .get_unchecked(self.pos - 1),
                 })
             }
         }
@@ -75,7 +65,7 @@ impl<'a> Iterator for Live2DParameterIter<'a> {
 
 #[derive(Debug, PartialEq)]
 pub struct Live2DParameterMut<'a> {
-    id: &'a *const c_char,
+    pub id: &'a *const c_char,
     pub minimum_value: &'a f32,
     pub maximum_value: &'a f32,
     pub default_value: &'a f32,
@@ -126,7 +116,7 @@ impl<'a> Iterator for Live2DParameterIterMut<'a> {
                         .get_unchecked(self.pos - 1),
                     value: self
                         .inner
-                        .csm_get_parameter_values()
+                        .csm_get_mut_parameter_values()
                         .get_unchecked_mut(self.pos - 1),
                 })
             }

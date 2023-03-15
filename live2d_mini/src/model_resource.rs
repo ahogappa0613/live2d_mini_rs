@@ -1,6 +1,7 @@
 use std::alloc::alloc_zeroed;
 use std::alloc::Layout;
 use std::alloc::LayoutError;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -88,6 +89,7 @@ pub struct Live2DModelResource {
     _moc_address: Live2DAddress,
 
     model: *mut live2d_mini_sys::csmModel,
+    not_exists_parameter_ids: HashMap<String, usize>,
 }
 
 impl Live2DModelResource {
@@ -100,8 +102,8 @@ impl Live2DModelResource {
     }
 
     pub fn update(&self) {
-        self.csm_reset_drawable_dynamic_flags();
         self.csm_update_model();
+        self.csm_reset_drawable_dynamic_flags();
     }
 
     pub fn iter_drawables<'a>(&'a self) -> Live2DDrawableIter<'a> {
@@ -207,7 +209,28 @@ impl Live2DModelResource {
                 _moc_address: moc_address,
 
                 model,
+                not_exists_parameter_ids: HashMap::new(),
             })
+        }
+    }
+
+    // parameter idからindexを取得する
+    // idがないものが渡される可能性があるのでそれを考慮する
+    pub fn get_parameter_index(&mut self, id: &str) -> usize {
+        // dbg!(self.csm_get_parameter_count());
+        // jsonデータにあるパラメータか
+        if let Some(index) = self.iter_parameters().position(|param| param.id() == id) {
+            index
+        } else {
+            // 存在していないパラメータリストに存在しているか
+            if let Some(index) = self.not_exists_parameter_ids.get(id) {
+                *index
+            } else {
+                let index = self.csm_get_drawable_count() + self.not_exists_parameter_ids.len();
+                self.not_exists_parameter_ids.insert(id.to_string(), index);
+
+                index
+            }
         }
     }
 
@@ -297,13 +320,23 @@ impl Live2DModelResource {
         }
     }
 
-    // ここに書き込むとmodelが操作できる
+    // ここに書き込むとmodelを操作できる
     #[inline]
-    pub fn csm_get_parameter_values<'a>(&self) -> &mut [f32] {
+    pub fn csm_get_mut_parameter_values<'a>(&self) -> &mut [f32] {
         unsafe {
             std::slice::from_raw_parts_mut(
                 live2d_mini_sys::csmGetParameterValues(self.model),
-                self.csm_get_part_count(),
+                self.csm_get_parameter_count(),
+            )
+        }
+    }
+
+    #[inline]
+    pub fn csm_get_parameter_values<'a>(&self) -> &[f32] {
+        unsafe {
+            std::slice::from_raw_parts(
+                live2d_mini_sys::csmGetParameterValues(self.model),
+                self.csm_get_parameter_count(),
             )
         }
     }

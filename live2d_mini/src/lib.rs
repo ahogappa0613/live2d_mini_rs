@@ -1,11 +1,11 @@
 mod address;
-pub mod animation;
+mod animation;
 mod constant_flag;
 mod drawable;
 mod dynamic_flag;
 pub mod model;
 mod model_json;
-pub mod model_resource;
+mod model_resource;
 mod motion_json;
 mod parameter;
 mod part;

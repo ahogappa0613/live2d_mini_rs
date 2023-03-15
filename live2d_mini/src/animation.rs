@@ -145,7 +145,7 @@ impl Animation {
     pub fn evaluate_animation(&mut self, model: &Live2DModelResource, time: f32) {
         // dbg!(&animation.curves);
         for (id, curve) in self.curves.iter_mut() {
-            let value = curve.evaluate_curve(time);
+            let mut value = curve.evaluate_curve(time);
 
             match curve.curve_type {
                 AnimationType::ModelAnimationCurve => todo!(),
@@ -154,6 +154,12 @@ impl Animation {
                         .iter_mut_parameters()
                         .find(|part| part.id() == id)
                         .expect("not find parameter");
+                    if *target.maximum_value < value {
+                        value = *target.maximum_value;
+                    }
+                    if *target.minimum_value > value {
+                        value = *target.minimum_value;
+                    }
                     *target.value = value;
                 }
                 AnimationType::PartOpacityAnimationCurve => {
@@ -179,7 +185,6 @@ pub fn parse_segments(segments_vec: &Vec<f32>) -> Vec<AnimationCurveType> {
     let mut ret = vec![];
 
     let mut index = 2;
-    let mut index_d = 0;
     // 最初の点はどのcurve typeも固定
     let mut last_point = AnimationPoint {
         time: segments_vec[0],
@@ -193,7 +198,6 @@ pub fn parse_segments(segments_vec: &Vec<f32>) -> Vec<AnimationCurveType> {
 
         match segments_vec[index] {
             1.0 => {
-                index_d = 7;
                 ret.push(AnimationCurveType::Bezier(
                     last_point,
                     AnimationPoint {
@@ -214,9 +218,9 @@ pub fn parse_segments(segments_vec: &Vec<f32>) -> Vec<AnimationCurveType> {
                     time: segments_vec[index + 5],
                     value: segments_vec[index + 6],
                 };
+                index += 7
             }
             0.0 => {
-                index_d = 3;
                 ret.push(AnimationCurveType::Linear(
                     last_point,
                     AnimationPoint {
@@ -229,11 +233,10 @@ pub fn parse_segments(segments_vec: &Vec<f32>) -> Vec<AnimationCurveType> {
                     time: segments_vec[index + 1],
                     value: segments_vec[index + 2],
                 };
+                index += 3
             }
             _ => panic!(),
         };
-
-        index += index_d;
     }
 
     ret
