@@ -30,7 +30,7 @@ struct Stage {
 impl Stage {
     pub fn new(ctx: &mut Context) -> Self {
         let mut model =
-            live2d_mini::model::Live2DModel::new("./resources/Hiyori/Hiyori.model3.json");
+            live2d_mini::model::Live2DModel::new("./live2d_mini_rust/resources/Hiyori/Hiyori.model3.json");
         let textures = model
             .textures
             .iter()
@@ -43,6 +43,8 @@ impl Stage {
         let mut bindings_vec = vec![];
 
         model.reset_animation(1);
+        model.evaluate_physic(0.01);
+        model.resource.update();
 
         // dbg!(&model.physics);
 
@@ -138,7 +140,7 @@ impl<'a> EventHandler for Stage {
 
         // self.model.resource.csm_update_model();
 
-        self.model.resource.csm_update_model();
+        self.model.resource.update();
 
         let mut indices4 = vec![];
         let mut bindings_vec = vec![];

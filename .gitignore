@@ -1,6 +1,6 @@
 /target
 Cargo.lock
-resources/**/*
+live2d_mini_rust/resources/**/*
 !.keep
 .DS_Store
 .vscode
