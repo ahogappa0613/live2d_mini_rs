@@ -109,9 +109,9 @@ impl Animation {
 
     /// TODO
     pub fn add(json: &motion_json::MotionJson) {
-        let duration = json.Meta.Duration;
-        let curve_count = json.Meta.CurveCount;
-        let is_loop = json.Meta.Loop;
+        let _duration = json.Meta.Duration;
+        let _curve_count = json.Meta.CurveCount;
+        let _is_loop = json.Meta.Loop;
         let mut curves: HashMap<String, AnimationCurve> = HashMap::new();
 
         for curve in json.Curves.iter() {
