@@ -62,13 +62,23 @@ impl Live2DVector4 {
 }
 
 #[derive(Debug, Clone)]
-pub struct Live2DReadCanvasInfo {
+pub struct Live2DCanvasInfo {
     /// キャンバスサイズ
     pub out_size_in_pixels: Live2DVector2,
     /// キャンバスの中心点
     pub out_origin_in_pixels: Live2DVector2,
     /// モデルのユニットの大きさ
     pub out_pixels_per_unit: f32,
+}
+
+impl Live2DCanvasInfo {
+    pub fn get_canvas_with(&self) -> f32 {
+        self.out_size_in_pixels.x() / self.out_pixels_per_unit
+    }
+
+    pub fn get_canvas_height(&self) -> f32 {
+        self.out_size_in_pixels.y() / self.out_pixels_per_unit
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -222,7 +232,7 @@ impl Live2DModelResource {
         }
     }
 
-    pub fn csm_read_canvas_info(&self) -> Live2DReadCanvasInfo {
+    pub fn csm_read_canvas_info(&self) -> Live2DCanvasInfo {
         unsafe {
             let mut out_size_in_pixels: Live2DVector2 = std::mem::zeroed();
             let mut out_origin_in_pixels: Live2DVector2 = std::mem::zeroed();
@@ -234,7 +244,7 @@ impl Live2DModelResource {
                 &mut out_pixels_per_unit,
             );
 
-            Live2DReadCanvasInfo {
+            Live2DCanvasInfo {
                 out_size_in_pixels,
                 out_origin_in_pixels,
                 out_pixels_per_unit,
