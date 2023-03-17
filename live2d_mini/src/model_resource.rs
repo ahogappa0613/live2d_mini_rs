@@ -15,19 +15,7 @@ use crate::dynamic_flag::Live2DDynamicFlag;
 use crate::parameter::*;
 use crate::part::*;
 
-#[derive(Debug, Clone)]
-pub struct Live2DVector2(live2d_mini_sys::csmVector2);
-impl Live2DVector2 {
-    #[inline]
-    pub fn x(&self) -> f32 {
-        self.0.X
-    }
-
-    #[inline]
-    pub fn y(&self) -> f32 {
-        self.0.Y
-    }
-}
+use crate::vector2::Live2DVector2;
 
 #[derive(Debug, Clone)]
 pub struct Live2DVector4(live2d_mini_sys::csmVector4);

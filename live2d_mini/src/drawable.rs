@@ -4,6 +4,8 @@ use crate::constant_flag::*;
 use crate::dynamic_flag::*;
 use crate::model_resource::*;
 
+use crate::vector2::*;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Live2DDrawable<'a> {
     id: &'a *const c_char,
