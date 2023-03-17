@@ -26,11 +26,13 @@ struct Stage {
     start_time: f64,
     last_frame: f64,
     textures: Vec<Texture>, // model: live2d_mini::model_resource::Live2DModelResource,
+    canvas_info: live2d_mini::model_resource::Live2DCanvasInfo,
 }
 impl Stage {
     pub fn new(ctx: &mut Context) -> Self {
-        let mut model =
-            live2d_mini::model::Live2DModel::new("./live2d_mini_rust/resources/Hiyori/Hiyori.model3.json");
+        let mut model = live2d_mini::model::Live2DModel::new(
+            "./live2d_mini_rust/resources/Hiyori/Hiyori.model3.json",
+        );
         let textures = model
             .textures
             .iter()
@@ -108,6 +110,8 @@ impl Stage {
         );
 
         let time = miniquad::date::now();
+        let canvas_info = model.resource.csm_read_canvas_info();
+
         // dbg!("----------------------------------------------------------------------------");
         Stage {
             pipeline: pipeline1,
@@ -119,6 +123,7 @@ impl Stage {
             start_time: time,
             last_frame: 0.0,
             textures, // model,
+            canvas_info,
         }
     }
 }
@@ -196,6 +201,21 @@ impl<'a> EventHandler for Stage {
         ctx.begin_default_pass(PassAction::default());
         ctx.apply_pipeline(&self.pipeline);
 
+        let (w, h) = ctx.screen_size();
+        let mut projection = [
+            1.0f32, 0., 0., 0., 0., 1.0, 0., 0., 0., 0., 1.0, 0., 0., 0., 0., 1.0,
+        ];
+
+        if self.canvas_info.get_canvas_with() > 1.0 && w < h {
+            projection[0] = 1.0;
+            projection[5] = w / h;
+        } else {
+            projection[0] = h / w;
+            projection[5] = 1.0;
+        }
+
+        ctx.apply_uniforms(&projection);
+
         for (index, bind) in self.bindings.iter().enumerate() {
             ctx.apply_bindings(bind);
 
@@ -210,8 +230,8 @@ fn main() {
     miniquad::start(
         conf::Conf {
             window_title: "live2d_mini_rs_demo".to_string(),
-            window_width: 1024,
-            window_height: 1024,
+            window_width: 1398,
+            window_height: 847,
             fullscreen: false,
             high_dpi: true,
             ..Default::default()
@@ -226,9 +246,10 @@ mod shader {
     pub const VERTEX: &str = r#"#version 100
     attribute vec2 pos;
     attribute vec2 uv;
+    uniform mat4 offset;
     varying lowp vec2 texcoord;
     void main() {
-        gl_Position = vec4(pos, 0, 1);
+        gl_Position = vec4(pos, 0, 1) * offset;
         texcoord = uv;
     }"#;
 
@@ -242,7 +263,9 @@ mod shader {
     pub fn meta() -> ShaderMeta {
         ShaderMeta {
             images: vec!["tex1".to_string()],
-            uniforms: UniformBlockLayout { uniforms: vec![] },
+            uniforms: UniformBlockLayout {
+                uniforms: vec![UniformDesc::new("offset", UniformType::Mat4)],
+            },
         }
     }
 }
