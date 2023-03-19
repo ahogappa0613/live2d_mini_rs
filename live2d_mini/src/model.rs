@@ -1,4 +1,3 @@
-
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -7,7 +6,6 @@ use crate::animation::*;
 use crate::model_json;
 use crate::motion_json;
 use crate::physic_json;
-
 
 use image::RgbaImage;
 
@@ -54,7 +52,8 @@ impl<'a> Live2DModel {
             })
             .collect::<Vec<RgbaImage>>();
 
-        let resource = Live2DModelResource::new(current_dir.join(model_json.FileReferences.Moc));
+        let resource = Live2DModelResource::new(current_dir.join(model_json.FileReferences.Moc))
+            .expect("moc load error");
         // let file =
         //     File::open(current_dir.join(model_json.FileReferences.Pose.expect(""))).expect("");
         // let reader = BufReader::new(file);

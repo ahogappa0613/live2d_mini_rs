@@ -92,11 +92,13 @@ pub struct Live2DModelResource {
 
 impl Live2DModelResource {
     /// moc3ファイルを読み込んでLive2DModelを生成する
-    pub fn new<T>(moc_path: T) -> Self
+    pub fn new<T>(moc_path: T) -> io::Result<Self>
     where
         T: AsRef<Path>,
     {
-        Self::read_blob_aligned(moc_path.as_ref()).expect("path error")
+        let model_resource = Self::read_blob_aligned(moc_path.as_ref())?;
+
+        Ok(model_resource)
     }
 
     pub fn update(&self) {
@@ -192,6 +194,15 @@ impl Live2DModelResource {
             let moc_slice =
                 std::slice::from_raw_parts_mut(moc_address.ptr, moc_address.layout.size());
             file.read(moc_slice)?;
+
+            // moc3ファイルの整合性を確認する
+            if live2d_mini_sys::csmHasMocConsistency(moc_address.ptr as _, file_size as _) == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::Other,
+                    "moc3 file is not consistent",
+                ));
+            }
+
             let moc = live2d_mini_sys::csmReviveMocInPlace(moc_address.ptr as _, file_size as _);
 
             let model_size = live2d_mini_sys::csmGetSizeofModel(moc);
